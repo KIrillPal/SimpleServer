@@ -1,0 +1,5 @@
+#ignore compilation results
+server
+#ignore clion files
+.idea/
+cmake-build-debug/
