@@ -44,7 +44,7 @@ struct HttpRequest {
     } connection = KEEP_ALIVE;
     size_t upgrade_insecure_requests = 0;
 
-    size_t content_length = 0;
+    size_t content_length = BODY_LENGTH;
     std::string content_category;
     std::string content_type;
     std::string content_options;
@@ -61,9 +61,14 @@ struct HttpRequest {
 struct HttpResponse {
     enum {
         OK             = 200,
-        NOT_FOUND      = 404,
-        FORBIDDEN      = 403,
+        CREATED        = 201,
+        ACCEPTED       = 202,
+        NO_CONTENT     = 204,
         BAD_REQUEST    = 400,
+        FORBIDDEN      = 403,
+        NOT_FOUND      = 404,
+        METHOD_NOT_ALLOWED = 405,
+        CONFLICT       = 409,
         INTERNAL_ERROR = 500
     } status = OK;
 

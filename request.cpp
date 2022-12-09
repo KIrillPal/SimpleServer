@@ -26,11 +26,28 @@ std::string getStatusMessage(const HttpResponse& response) {
     if (response.status == HttpResponse::OK) {
         return "OK";
     }
+    if (response.status == HttpResponse::CREATED) {
+        return "Created";
+    }
+    if (response.status == HttpResponse::ACCEPTED) {
+        return "Accepted";
+    }
+    if (response.status == HttpResponse::NO_CONTENT) {
+        return "No content";
+    }
+    if (response.status == HttpResponse::BAD_REQUEST) {
+        return "Bad request";
+    }if (response.status == HttpResponse::FORBIDDEN) {
+        return "Forbidden";
+    }
     if (response.status == HttpResponse::NOT_FOUND) {
         return "Not Found";
     }
-    if (response.status == HttpResponse::FORBIDDEN) {
-        return "Forbidden";
+    if (response.status == HttpResponse::METHOD_NOT_ALLOWED) {
+        return "Method Not Allowed";
+    }
+    if (response.status == HttpResponse::CONFLICT) {
+        return "Conflict";
     }
     if (response.status == HttpResponse::INTERNAL_ERROR) {
         return "Internal Error";
@@ -109,6 +126,7 @@ void readRequestBody(std::basic_istream<char>& in, HttpRequest& request) {
         size_t got = in.gcount();
 
         if (got < request.content_length) {
+            request.data.resize(got);
             std::string message = "could read only " + std::to_string(got);
             message += " bytes out of Content-Length=" + std::to_string(request.content_length);
             alertNote(message);
@@ -270,9 +288,12 @@ HttpRequest HttpRequest::readRequest(std::basic_istream<char>& in) {
     request.url = RequestURL::fromString(url_string);
     int line_number = 2;
     std::string line;
-    std::getline(in, line, '\r');
+    std::getline(in, line);
 
-    while (std::getline(in, line, '\r') && (!line.empty() && line == "\n")) {
+    while (std::getline(in, line) && (!line.empty() && line != "\r")) {
+        if (line.back() == '\r')
+            line.pop_back();
+
         if (setArgument(request, line)) {
             std::string message = "invalid format of argument line ";
             message += std::to_string(line_number) + " '" + line + "'";
@@ -284,8 +305,7 @@ HttpRequest HttpRequest::readRequest(std::basic_istream<char>& in) {
 
     if (request.content_length > 0) {
         if (request.content_length == HttpRequest::BODY_LENGTH) {
-            std::string data(std::istreambuf_iterator<char>(in), {});
-            request.data = std::move(std::vector<char>(data.begin(), data.end()));
+            request.data.assign(std::istreambuf_iterator<char>(in), {});
             request.content_length = request.data.size();
         }
         else readRequestBody(in, request);
@@ -305,14 +325,15 @@ std::string HttpResponse::getResponseHeader(const HttpResponse &response) {
          out << "Connection: Keep-Alive" << newline;
     else out << "Connection: Close" << newline;
 
-    if (response.content_length != 0) {
-        out << "Content-Length: " << response.content_length << newline;
+    out << "Content-Length: " << response.content_length << newline;
+    if (response.content_length > 0) {
         out << "Content-Type: " << response.content_category << "/" << response.content_type;
         if (!response.content_options.empty()) {
             out << "; " << response.content_options;
         }
         out << newline;
     }
+
     if (!response.content_encoding.empty()) {
         out << "Content-Encoding: " << response.content_encoding.c_str() << newline;
     }

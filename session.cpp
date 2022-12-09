@@ -20,7 +20,6 @@ void Session::start()
     std::cout << "Accepted " << remote_ip_ << '\n';
     closed_.store(false);
     do_read();
-    //send_page();
 }
 
 Session::~Session() {
@@ -39,8 +38,9 @@ void Session::do_read()
     socket_.async_read_some(asio::buffer(buffer, BUFFER_SIZE),
         [this, self, buffer](std::error_code ec, std::size_t transferred) {
             if (!ec) {
-                //std::cout << "Package " << transferred << " bytes received from " << remote_ip_ << '\n';
-                //std::cout.write(buffer, transferred);
+                std::cout << "Package " << transferred << " bytes received from " << remote_ip_ << '\n';
+                std::cout << '\n';
+                std::cout.write(buffer, transferred);
 
                 doRequest(buffer, transferred);
             }
@@ -86,7 +86,7 @@ void Session::sendResponse(const HttpResponse& response) {
     std::string response_header = std::move(HttpResponse::getResponseHeader(response));
     size_t header_size = response_header.size();
     size_t total_size = header_size + response.data.size();
-    //std::cout << response_header;
+    std::cout << response_header;
 
     char* buffer = new char[total_size];
     std::copy(response_header.begin(), response_header.end(), buffer);
@@ -120,24 +120,68 @@ HttpResponse Session::doGetRequest(const HttpRequest& request) {
         return std::move(response);
     }
 
-    size_t file_size = std::filesystem::file_size(file_path);
-    response.status = HttpResponse::OK;
-    response.content_length = file_size;
-
     std::string file_extension = std::filesystem::path(file_path).extension();
     if (!file_extension.empty() && file_extension[0] == '.') {
         file_extension.erase(0, 1);
     }
-
     HttpResponse::setTypeFromExtension(response, file_extension);
 
-    try {
-        response.data.resize(file_size);
-        file.read(response.data.data(), file_size);
-    } catch (std::exception& ex) {
-        std::cout << "Failed to load opened file '" << file_path << "': " << ex.what() << '\n';
+    size_t file_size = std::filesystem::file_size(file_path);
+    if (file_size > 0) {
+        response.status = HttpResponse::OK;
+        response.content_length = file_size;
+        try {
+            response.data.resize(file_size);
+            file.read(response.data.data(), file_size);
+        } catch (std::exception& ex) {
+            std::cout << "Failed to load opened file '" << file_path << "': " << ex.what() << '\n';
+        }
+    } else {
+        response.status = HttpResponse::NO_CONTENT;
+    }
+    file.close();
+    return std::move(response);
+}
+
+HttpResponse Session::doPutRequest(const HttpRequest& request) {
+    HttpResponse response;
+    response.version = request.version;
+
+    std::string file_path = request.url.path;
+    if (file_path.empty() || file_path == "/") {
+        response.status = HttpResponse::BAD_REQUEST;
+        return std::move(response);
     }
 
+    if (file_path[0] == '/')
+        file_path = "." + file_path;
+    else file_path = "./" + file_path;
+
+    if (!std::filesystem::path(file_path).has_filename()) {
+        response.status = HttpResponse::BAD_REQUEST;
+        return std::move(response);
+    }
+    std::cout << "putting: " << file_path << '\n';
+    if (std::filesystem::exists(file_path)) {
+        response.status = HttpResponse::CONFLICT;
+        return std::move(response);
+    }
+
+    std::ofstream file(file_path, std::ios::binary);
+    if (!file.good()) {
+        response.status = HttpResponse::CONFLICT;
+        return std::move(response);
+    }
+
+    response.status = HttpResponse::CREATED;
+
+    try {
+        std::cout << "Writing " << request.content_length << " bytes to " << file_path << '\n';
+        file.write(request.data.data(), request.content_length);
+    } catch (std::exception& ex) {
+        std::cout << "Failed to save created file '" << file_path << "': " << ex.what() << '\n';
+    }
+    file.close();
     return std::move(response);
 }
 
@@ -147,9 +191,13 @@ void Session::doRequest(const HttpRequest& request) {
 
         if (request.method == HttpRequest::GET) {
             response = std::move(doGetRequest(request));
-        } else {
-            std::cout << "Note: request ignored: unknown method";
-            return;
+        }
+        else if (request.method == HttpRequest::PUT) {
+            response = std::move(doPutRequest(request));
+        }
+        else {
+            response.status  = HttpResponse::METHOD_NOT_ALLOWED;
+            response.version = Config::DEFAULT_HTTP_VERSION;
         }
         sendResponse(response);
     }
@@ -162,24 +210,29 @@ void Session::doRequest(const HttpRequest& request) {
     }
 }
 
-void Session::doRequest(char* buffer, size_t size) {
+void Session::doRequest(char* buffer, size_t size)
+{
     struct membuf : std::streambuf
     {
         membuf(char* begin, char* end) {
             this->setg(begin, begin, end);
         }
     };
+
     membuf stream_buffer(buffer, buffer + size);
     std::istream buffer_stream(&stream_buffer);
     HttpRequest request;
+
     try {
         request = std::move(HttpRequest::readRequest(buffer_stream));
+        if (request.data.size() < request.content_length)
+            readRequestData(request);
     }
      catch (std::exception& ex) {
         std::cout << "Invalid request: " << ex.what() << '\n';
         HttpResponse response;
         response.status = HttpResponse::BAD_REQUEST;
-        response.version = 2;
+        response.version = Config::DEFAULT_HTTP_VERSION;
         sendResponse(response);
         return;
     }
@@ -189,4 +242,15 @@ void Session::doRequest(char* buffer, size_t size) {
     Config::userThreadPool.submit([this, self, request = std::move(request)]() {
         doRequest(request);
     });
+}
+
+void Session::readRequestData(HttpRequest& request) {
+    size_t rest_size = request.content_length - request.data.size();
+
+    request.data.resize(request.content_length);
+    asio::error_code ec;
+    asio::read(socket_, asio::buffer(request.data.data(), rest_size), ec);
+    if (ec) {
+        throw std::runtime_error("Failed to get " + std::to_string(rest_size) + " bytes of package");
+    }
 }

@@ -15,9 +15,12 @@ public:
 private:
     void sendResponse(const HttpResponse& response);
     HttpResponse doGetRequest(const HttpRequest& request);
+    HttpResponse doPutRequest(const HttpRequest& request);
 
     void doRequest(const HttpRequest& request);
     void doRequest(char* buffer, size_t size);
+
+    void readRequestData(HttpRequest& request);
 
     void do_read();
     void do_write(char* allocated_buffer, std::size_t buffer_size);

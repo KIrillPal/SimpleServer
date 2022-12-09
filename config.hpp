@@ -2,9 +2,10 @@
 #include "threadpool.hpp"
 
 namespace Config {
-    const size_t user_threads   = 4;
-    const size_t script_threads = 2;
+    const size_t USER_THREADS   = 4;
+    const size_t SCRIPT_THREADS = 2;
+    const float DEFAULT_HTTP_VERSION = 2;
 
-    ThreadPool userThreadPool(user_threads);
-    ThreadPool scriptThreadPool(script_threads);
+    ThreadPool userThreadPool(USER_THREADS);
+    ThreadPool scriptThreadPool(SCRIPT_THREADS);
 }
