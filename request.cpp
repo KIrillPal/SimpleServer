@@ -68,6 +68,7 @@ bool setHttpVersion(HttpRequest& request, const std::string& version_string) {
         return true;
     }
     std::string version = version_string.substr(5);
+    errno = 0;
     request.version = strtof(version.c_str(), NULL);
     if (errno) {
         return true;
@@ -90,6 +91,7 @@ bool setHostAndPort(RequestURL& url, const std::string& address) {
 
     long port_pos = address.find(":");
     if (port_pos != std::string::npos) {
+        errno = 0;
         unsigned long port = strtol(address.substr(port_pos + 1).c_str(), NULL, 10);
         if (errno || port < MIN_PORT || MAX_PORT < port) {
             return true;
@@ -343,7 +345,8 @@ void HttpResponse::setTypeFromExtension(HttpResponse& response, const std::strin
                     "jpeg",
                     "gif",
                     "png",
-                    "tiff"
+                    "tiff",
+                    "ico"
             };
     static const std::vector<std::string> videoTypes =
             {
@@ -369,6 +372,10 @@ void HttpResponse::setTypeFromExtension(HttpResponse& response, const std::strin
     }
     if (std::find(audioTypes.begin(), audioTypes.end(), extension) != audioTypes.end()) {
         response.content_category = "audio";
+        return;
+    }
+    if (std::find(imageTypes.begin(), imageTypes.end(), extension) != imageTypes.end()) {
+        response.content_category = "image";
         return;
     }
     if (std::find(videoTypes.begin(), videoTypes.end(), extension) != videoTypes.end()) {

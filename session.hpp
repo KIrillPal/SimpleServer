@@ -1,5 +1,6 @@
 #pragma once
 #include <asio/ts/internet.hpp>
+#include <atomic>
 #include "request.hpp"
 
 class Session : public std::enable_shared_from_this<Session>
@@ -23,4 +24,5 @@ private:
 
     asio::ip::tcp::socket socket_;
     asio::ip::address remote_ip_;
-};
+    std::atomic<bool> closed_;
+    };
