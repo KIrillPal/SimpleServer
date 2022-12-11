@@ -100,18 +100,22 @@ HttpResponse Session::doGetRequest(const HttpRequest& request) {
     response.version = request.version;
 
     std::string file_path = request.url.path;
-    if (file_path.empty() || file_path == "/") {
-        file_path = "/index.html";
-    }
-
     if (file_path[0] == '/')
         file_path = "." + file_path;
     else file_path = "./" + file_path;
+
+    if (std::filesystem::is_directory(file_path)) {
+        file_path += "/index.html";
+    }
 
     std::cout << "find: " << file_path << '\n';
     if (!std::filesystem::exists(file_path)) {
         response.status = HttpResponse::NOT_FOUND;
         return std::move(response);
+    }
+
+    if (!request.url.query_string.empty()) {
+        return std::move(doScript(file_path, request.url.query_string));
     }
 
     std::ifstream file(file_path, std::ios::binary);
@@ -253,4 +257,49 @@ void Session::readRequestData(HttpRequest& request) {
     if (ec) {
         throw std::runtime_error("Failed to get " + std::to_string(rest_size) + " bytes of package");
     }
+}
+
+
+HttpResponse Session::doPhpScript(const std::string& path, std::string query) {
+    HttpResponse response;
+    response.version = Config::DEFAULT_HTTP_VERSION;
+
+    if (query[0] == '?')
+        query[0] = ' ';
+    std::replace( query.begin(), query.end(), '&', ' ');
+
+    std::string command = "php-cgi -f " +  path + " " + query;
+    FILE* exec_pipe = popen(command.c_str(), "r");
+    if (!exec_pipe) {
+        response.status = HttpResponse::INTERNAL_ERROR;
+        return std::move(response);
+    }
+
+    char buffer[BUFFER_SIZE];
+    while (!feof(exec_pipe)) {
+        size_t got = std::fread(buffer, sizeof(char), BUFFER_SIZE, exec_pipe);
+        if (got == 0)
+            break;
+        size_t offset = response.data.size();
+        response.data.resize(offset + got);
+        std::copy(buffer, buffer + got, response.data.begin() + offset);
+    }
+    response.status = HttpResponse::OK;
+    response.content_length = response.data.size();
+    HttpResponse::setTypeFromExtension(response, ".html");
+    response.content_disposition = "inline";
+    return std::move(response);
+}
+
+HttpResponse Session::doScript(const std::string& path, const std::string& query) {
+    std::string extension = std::filesystem::path(path).extension();
+    std::cout << "Executing script '" << path << "'\n";
+
+    if (extension == ".php") {
+        return std::move(doPhpScript(path, query));
+    }
+    HttpResponse response;
+    response.status = HttpResponse::INTERNAL_ERROR;
+    response.version = Config::DEFAULT_HTTP_VERSION;
+    return std::move(response);
 }

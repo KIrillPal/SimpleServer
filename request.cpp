@@ -106,7 +106,7 @@ bool setHostAndPort(RequestURL& url, const std::string& address) {
     const unsigned long MIN_PORT = 1;
     const unsigned long MAX_PORT = 65535;
 
-    long port_pos = address.find(":");
+    size_t port_pos = address.find(":");
     if (port_pos != std::string::npos) {
         errno = 0;
         unsigned long port = strtol(address.substr(port_pos + 1).c_str(), NULL, 10);
@@ -141,8 +141,8 @@ void readRequestBody(std::basic_istream<char>& in, HttpRequest& request) {
 RequestURL RequestURL::fromString(const std::string &str) {
     RequestURL url;
 
-    long root_start = 0;
-    long protocol_size = str.find("://");
+    size_t root_start = 0;
+    size_t protocol_size = str.find("://");
     if (protocol_size != std::string::npos) {
         std::string protocol = lowercase(str.substr(0, protocol_size));
         if (setProtocol(url, protocol)) {
@@ -161,10 +161,10 @@ RequestURL RequestURL::fromString(const std::string &str) {
         }
     }
 
-    long query_pos = str.find("?");
+    size_t query_pos = str.find("?");
     url.path = str.substr(root_start, query_pos - root_start);
     if (query_pos != std::string::npos) {
-        url.query_string = str.substr(query_pos + 1);
+        url.query_string = str.substr(query_pos);
     }
     return std::move(url);
 }
@@ -178,7 +178,7 @@ void setContentType(HttpRequest& request, std::string& value) {
     }
     if (type.back() == ';')
         type.pop_back();
-    long delim_pos = type.find('/');
+    size_t delim_pos = type.find('/');
     if (delim_pos != std::string::npos) {
         request.content_category = type.substr(0, delim_pos);
         request.content_type     = type.substr(delim_pos);
@@ -219,7 +219,7 @@ void setContentLength(HttpRequest& request, std::string& value) {
 }
 
 bool setArgument(HttpRequest& request, const std::string& line) {
-    long delim_pos = line.find(": ");
+    size_t delim_pos = line.find(": ");
     if (delim_pos == std::string::npos) {
         return true;
     }
@@ -335,7 +335,10 @@ std::string HttpResponse::getResponseHeader(const HttpResponse &response) {
     }
 
     if (!response.content_encoding.empty()) {
-        out << "Content-Encoding: " << response.content_encoding.c_str() << newline;
+        out << "Content-Encoding: " << response.content_encoding << newline;
+    }
+    if (!response.content_disposition.empty()) {
+        out << "Content-Disposition: " << response.content_disposition << newline;
     }
     out << response.other.c_str();
     out << newline;

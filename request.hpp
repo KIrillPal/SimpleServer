@@ -84,6 +84,7 @@ struct HttpResponse {
     std::string content_type;
     std::string content_options;
     std::string content_encoding;
+    std::string content_disposition;
 
     std::string other;
     std::vector<char> data;
