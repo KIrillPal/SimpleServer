@@ -23,6 +23,9 @@ void alertInvalidHeader(const std::string& header, const std::string& value) {
 }
 
 std::string getStatusMessage(const HttpResponse& response) {
+    if (response.status == HttpResponse::PROCESSING) {
+        return "Processing";
+    }
     if (response.status == HttpResponse::OK) {
         return "OK";
     }

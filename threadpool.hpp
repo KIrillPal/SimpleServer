@@ -45,7 +45,12 @@ private:
 
 class ThreadPool {
 public:
-	ThreadPool(size_t n) {
+    ThreadPool() = default;
+    ThreadPool(size_t n) {
+        start(n);
+    };
+
+    void start(size_t n) {
 		while (n--) {
 			threads_.emplace_back([this]() { worker(); });
 		}

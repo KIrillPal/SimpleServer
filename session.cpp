@@ -284,6 +284,7 @@ HttpResponse Session::doPhpScript(const std::string& path, std::string query) {
         response.data.resize(offset + got);
         std::copy(buffer, buffer + got, response.data.begin() + offset);
     }
+
     response.status = HttpResponse::OK;
     response.content_length = response.data.size();
     HttpResponse::setTypeFromExtension(response, ".html");
@@ -295,11 +296,15 @@ HttpResponse Session::doScript(const std::string& path, const std::string& query
     std::string extension = std::filesystem::path(path).extension();
     std::cout << "Executing script '" << path << "'\n";
 
-    if (extension == ".php") {
-        return std::move(doPhpScript(path, query));
-    }
+    auto self = shared_from_this();
+    Config::scriptThreadPool.submit([=, this](){
+        if (extension == ".php") {
+            sendResponse(doPhpScript(path, query));
+        }
+    });
+
     HttpResponse response;
-    response.status = HttpResponse::INTERNAL_ERROR;
+    response.status = HttpResponse::PROCESSING;
     response.version = Config::DEFAULT_HTTP_VERSION;
     return std::move(response);
 }

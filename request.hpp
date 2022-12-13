@@ -60,6 +60,7 @@ struct HttpRequest {
 
 struct HttpResponse {
     enum {
+        PROCESSING     = 102,
         OK             = 200,
         CREATED        = 201,
         ACCEPTED       = 202,

@@ -16,7 +16,7 @@ socket.connect(ep);
 return socket.local_endpoint().address();
 }
 
-Server::Server(short port) :
+Server::Server(unsigned short port) :
     acceptor_(context_, tcp::endpoint(tcp::v4(), port)),
     socket_(context_)
 {

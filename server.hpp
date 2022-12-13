@@ -5,12 +5,12 @@
 class Server
 {
 public:
-    Server(short port);
+    Server(unsigned short port);
     static asio::ip::address getLocalIP();
 private:
     void do_accept();
 
-  asio::io_context        context_;
-  asio::ip::tcp::acceptor acceptor_;
-  asio::ip::tcp::socket   socket_;
+    asio::io_context        context_;
+    asio::ip::tcp::acceptor acceptor_;
+    asio::ip::tcp::socket   socket_;
 };
