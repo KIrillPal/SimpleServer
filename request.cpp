@@ -5,7 +5,7 @@
 #include <exception>
 #include <cstdlib>
 #include <cerrno>
-#include <algorithm>
+#include "config.hpp"
 #include "request.hpp"
 
 std::string lowercase(std::string str) {
@@ -15,7 +15,8 @@ std::string lowercase(std::string str) {
 }
 
 void alertNote(const std::string& message) {
-    std::cout << "Note: " << message << '\n';
+    Config::log.logTime();
+    Config::log << "Note: " << message << '\n';
 }
 
 void alertInvalidHeader(const std::string& header, const std::string& value) {

@@ -17,12 +17,16 @@ Session::Session(tcp::socket socket) : socket_(std::move(socket)) {}
 void Session::start()
 {
     remote_ip_ = socket_.remote_endpoint().address();
+    Config::log.logTime();
+    Config::log << "Accepted " << remote_ip_ << '\n';
     std::cout << "Accepted " << remote_ip_ << '\n';
     closed_.store(false);
     do_read();
 }
 
 Session::~Session() {
+    Config::log.logTime();
+    Config::log << "Disconnected\n";
     std::cout << "Disconnected\n";
 }
 
@@ -38,14 +42,15 @@ void Session::do_read()
     socket_.async_read_some(asio::buffer(buffer, BUFFER_SIZE),
         [this, self, buffer](std::error_code ec, std::size_t transferred) {
             if (!ec) {
-                std::cout << "Package " << transferred << " bytes received from " << remote_ip_ << '\n';
-                std::cout << '\n';
-                std::cout.write(buffer, transferred);
+                Config::log.logTime();
+                Config::log << "Package " << transferred << " bytes received from " << remote_ip_ << "\n\n";
+                Config::log.write(buffer, transferred);
 
                 doRequest(buffer, transferred);
             }
             else {
-                std::cout << "Error with package receiving from " << remote_ip_ << ": "
+                Config::log.logTime();
+                Config::log << "Error with package receiving from " << remote_ip_ << ": "
                             << ec << ". " << ec.message() << '\n';
                 if (ec.value() == asio::error::eof || ec.value() == asio::error::connection_reset) {
                     std::error_code ec;
@@ -70,11 +75,13 @@ void Session::do_write(char* allocated_buffer, std::size_t buffer_size)
     asio::async_write(socket_, asio::buffer(allocated_buffer, buffer_size),
         [this, self, allocated_buffer](std::error_code ec, std::size_t transferred) {
             if (!ec) {
-                std::cout << "Package " << transferred << " bytes sent to " << remote_ip_ << '\n';
-                //std::cout << '\n';
-                //std::cout.write(allocated_buffer, transferred);
+                Config::log.logTime();
+                Config::log << "Package " << transferred << " bytes sent to " << remote_ip_ << '\n';
+                }
+            else {
+                Config::log.logTime();
+                Config::log << "Failed to send package " << transferred << " bytes to " << remote_ip_ << '\n';
             }
-            else std::cout << "Failed to send package " << transferred << " bytes to " << remote_ip_ << '\n';
 
             delete[] allocated_buffer;
             do_read();
@@ -86,7 +93,8 @@ void Session::sendResponse(const HttpResponse& response) {
     std::string response_header = std::move(HttpResponse::getResponseHeader(response));
     size_t header_size = response_header.size();
     size_t total_size = header_size + response.data.size();
-    std::cout << response_header;
+    Config::log.logTime();
+    Config::log << response_header;
 
     char* buffer = new char[total_size];
     std::copy(response_header.begin(), response_header.end(), buffer);
@@ -108,7 +116,8 @@ HttpResponse Session::doGetRequest(const HttpRequest& request) {
         file_path += "/index.html";
     }
 
-    std::cout << "find: " << file_path << '\n';
+    Config::log.logTime();
+    Config::log << "find: " << file_path << '\n';
     if (!std::filesystem::exists(file_path)) {
         response.status = HttpResponse::NOT_FOUND;
         return std::move(response);
@@ -138,7 +147,8 @@ HttpResponse Session::doGetRequest(const HttpRequest& request) {
             response.data.resize(file_size);
             file.read(response.data.data(), file_size);
         } catch (std::exception& ex) {
-            std::cout << "Failed to load opened file '" << file_path << "': " << ex.what() << '\n';
+            Config::log.logTime();
+            Config::log << "Failed to load opened file '" << file_path << "': " << ex.what() << '\n';
         }
     } else {
         response.status = HttpResponse::NO_CONTENT;
@@ -165,7 +175,8 @@ HttpResponse Session::doPutRequest(const HttpRequest& request) {
         response.status = HttpResponse::BAD_REQUEST;
         return std::move(response);
     }
-    std::cout << "putting: " << file_path << '\n';
+    Config::log.logTime();
+    Config::log << "putting: " << file_path << '\n';
     if (std::filesystem::exists(file_path)) {
         response.status = HttpResponse::CONFLICT;
         return std::move(response);
@@ -180,10 +191,12 @@ HttpResponse Session::doPutRequest(const HttpRequest& request) {
     response.status = HttpResponse::CREATED;
 
     try {
-        std::cout << "Writing " << request.content_length << " bytes to " << file_path << '\n';
+        Config::log.logTime();
+        Config::log << "Writing " << request.content_length << " bytes to " << file_path << '\n';
         file.write(request.data.data(), request.content_length);
     } catch (std::exception& ex) {
-        std::cout << "Failed to save created file '" << file_path << "': " << ex.what() << '\n';
+        Config::log.logTime();
+        Config::log << "Failed to save created file '" << file_path << "': " << ex.what() << '\n';
     }
     file.close();
     return std::move(response);
@@ -206,7 +219,8 @@ void Session::doRequest(const HttpRequest& request) {
         sendResponse(response);
     }
     catch (std::exception& ex) {
-        std::cout << "Failed to response: " << ex.what() << '\n';
+        Config::log.logTime();
+        Config::log << "Failed to response: " << ex.what() << '\n';
         HttpResponse response;
         response.status = HttpResponse::INTERNAL_ERROR;
         sendResponse(response);
@@ -233,7 +247,8 @@ void Session::doRequest(char* buffer, size_t size)
             readRequestData(request);
     }
      catch (std::exception& ex) {
-        std::cout << "Invalid request: " << ex.what() << '\n';
+         Config::log.logTime();
+         Config::log << "Invalid request: " << ex.what() << '\n';
         HttpResponse response;
         response.status = HttpResponse::BAD_REQUEST;
         response.version = Config::DEFAULT_HTTP_VERSION;
@@ -294,7 +309,8 @@ HttpResponse Session::doPhpScript(const std::string& path, std::string query) {
 
 HttpResponse Session::doScript(const std::string& path, const std::string& query) {
     std::string extension = std::filesystem::path(path).extension();
-    std::cout << "Executing script '" << path << "'\n";
+    Config::log.logTime();
+    Config::log << "Executing script '" << path << "'\n";
 
     auto self = shared_from_this();
     Config::scriptThreadPool.submit([=, this](){

@@ -1,5 +1,6 @@
 #include <iostream>
 #include <asio/ts/internet.hpp>
+#include "config.hpp"
 #include "session.hpp"
 #include "server.hpp"
 
@@ -20,6 +21,9 @@ Server::Server(unsigned short port) :
     acceptor_(context_, tcp::endpoint(tcp::v4(), port)),
     socket_(context_)
 {
+    Config::log.logTime();
+    Config::log << "Server started with address " << getLocalIP() << ":" << (unsigned short)port << '\n';
+
     std::cout << "Server started with address " << getLocalIP() << ":" << (unsigned short)port << '\n';
     do_accept();
     context_.run();

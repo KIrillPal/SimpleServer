@@ -21,6 +21,7 @@ int main(int argc, char* argv[]) {
 
     Config::userThreadPool.start(Config::USER_THREADS);
     Config::scriptThreadPool.start(Config::SCRIPT_THREADS);
+
     try
     {
         if (argc != 2)
@@ -28,11 +29,19 @@ int main(int argc, char* argv[]) {
             std::cerr << "Usage: server <port>\n";
             return 1;
         }
+
+        std::string logfile_name = "logs/server 1--" + Log::getCurrentTime() + ".log";
+        Config::log.start(logfile_name);
+        Config::log.logTime();
+        Config::log << "yes\n";
+
         setRoot(Config::ROOT_DIRECTORY);
         Server s(Config::PORT);
     }
     catch (std::exception& e)
     {
+        Config::log.logTime();
+        Config::log << "Exception: " << e.what() << "\n";
         std::cerr << "Exception: " << e.what() << "\n";
     }
 

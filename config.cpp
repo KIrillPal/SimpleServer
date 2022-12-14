@@ -3,6 +3,7 @@
 namespace Config {
     unsigned short PORT = 65000;
     std::string ROOT_DIRECTORY = "./root";
+    std::string LOG_FILE       = "./last_log";
     float DEFAULT_HTTP_VERSION = 2;
 
     size_t USER_THREADS   = 4;
@@ -10,4 +11,5 @@ namespace Config {
 
     ThreadPool userThreadPool(USER_THREADS);
     ThreadPool scriptThreadPool(SCRIPT_THREADS);
+    Log log;
 }
