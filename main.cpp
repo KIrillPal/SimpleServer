@@ -12,29 +12,28 @@ void setRoot(const std::filesystem::path& root) {
     }
 }
 
-int main(int argc, char* argv[]) {
-    Config::PORT = std::atoi(argv[1]);
-    Config::ROOT_DIRECTORY = "./root";
-    Config::DEFAULT_HTTP_VERSION = 2;
-    Config::USER_THREADS   = 4;
-    Config::SCRIPT_THREADS = 2;
+std::string getLogName() {
+    return Config::LOG_DIRECTORY + '/' + Config::NAME + "---" + Log::getCurrentTime() + ".log";
+}
 
-    Config::userThreadPool.start(Config::USER_THREADS);
-    Config::scriptThreadPool.start(Config::SCRIPT_THREADS);
+int main(int argc, char* argv[]) {
+    std::string config_path = Config::DEFAULT_CONFIG_PATH;
+    if (argc >= 2) {
+        config_path = argv[1];
+    }
+
+    try {
+        Config::Configure(config_path);
+    } catch (std::exception& ex) {
+        std::cerr << "Configuration failed: " << ex.what() << '\n';
+        return 0;
+    }
 
     try
     {
-        if (argc != 2)
-        {
-            std::cerr << "Usage: server <port>\n";
-            return 1;
-        }
-
-        std::string logfile_name = "logs/server 1--" + Log::getCurrentTime() + ".log";
-        Config::log.start(logfile_name);
-        Config::log.logTime();
-        Config::log << "yes\n";
-
+        Config::log.start(getLogName());
+        Config::userThreadPool.start(Config::USER_THREADS);
+        Config::scriptThreadPool.start(Config::SCRIPT_THREADS);
         setRoot(Config::ROOT_DIRECTORY);
         Server s(Config::PORT);
     }

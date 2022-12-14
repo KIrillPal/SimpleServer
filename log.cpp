@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <iostream>
 #include <chrono>
 #include <ctime>
@@ -24,6 +25,11 @@ Log::Log(const std::string& path) {
 void Log::start(const std::string& path) {
     path_ = path;
     file_.open(path_);
+    if (!file_.is_open() && !std::filesystem::exists(path)) {
+        auto parent_dirs = std::filesystem::path(path).parent_path();
+        std::filesystem::create_directories(parent_dirs);
+        file_.open(path_);
+    }
     logTime();
     *this << "Log started\n";
 }

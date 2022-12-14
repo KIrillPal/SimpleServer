@@ -21,7 +21,6 @@ public:
         }
         log.file_ << value;
         log.file_.flush();
-        std::cout << value;
         return log;
     };
 
