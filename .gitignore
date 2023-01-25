@@ -3,4 +3,4 @@ server
 logs/
 #ignore clion files
 .idea/
-cmake-build-debug/
+cmake-build/
